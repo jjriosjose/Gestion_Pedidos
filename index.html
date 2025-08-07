@@ -413,7 +413,7 @@
     estadoSelect.appendChild(optTodos);
     uniqueEstados.forEach(opt => {
       const option = document.createElement('option');
-      option.value = opt;
+      option.value = opt || '__SIN_ESTADO__';
       option.textContent = opt || 'Sin estado';
       estadoSelect.appendChild(option);
     });
@@ -432,7 +432,9 @@
     if (estAlmacen && estAlmacen !== 'Todos') {
       lista = lista.filter(d => (d.estadoAlmacen || '').toUpperCase() === estAlmacen.toUpperCase());
     }
-    if (estPedido && estPedido !== 'Todos') {
+    if (estPedido === '__SIN_ESTADO__') {
+      lista = lista.filter(d => !(d.estadoPedido && d.estadoPedido.trim()));
+    } else if (estPedido && estPedido !== 'Todos') {
       lista = lista.filter(d => (d.estadoPedido || '').toUpperCase() === estPedido.toUpperCase());
     }
     renderDespachos(lista);
