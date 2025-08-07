@@ -393,28 +393,54 @@
   function crearFiltrosDespachos() {
     // Filtro de estatus de almacén
     const estatusSelect = document.getElementById('filtroDespachoEstatus');
-    // Lista de opciones con los estatus base más los que encuentren en los datos
-    const uniqueEstatus = Array.from(new Set(despachos.map(d => d.estadoAlmacen || '')));
-    const opcionesEstatus = ['Todos', ...ESTATUS_ALMACEN_LIST, ...uniqueEstatus.filter(x => !ESTATUS_ALMACEN_LIST.includes(x))];
+    // Mapear estatus encontrados usando mayúsculas para deduplicar
+    const estatusMap = new Map();
+    despachos.forEach(d => {
+      const original = d.estadoAlmacen || '';
+      const upper = original.toUpperCase();
+      if (!estatusMap.has(upper)) estatusMap.set(upper, original);
+    });
+    // Conjunto base de estatus en mayúsculas
+    const baseEstatusSet = new Set(ESTATUS_ALMACEN_LIST.map(e => e.toUpperCase()));
     estatusSelect.innerHTML = '';
-    opcionesEstatus.forEach(opt => {
+    // Opción 'Todos'
+    const optTodosEstatus = document.createElement('option');
+    optTodosEstatus.value = 'Todos';
+    optTodosEstatus.textContent = 'Todos';
+    estatusSelect.appendChild(optTodosEstatus);
+    // Opciones base
+    ESTATUS_ALMACEN_LIST.forEach(opt => {
       const option = document.createElement('option');
-      option.value = opt;
+      option.value = opt.toUpperCase();
       option.textContent = opt;
       estatusSelect.appendChild(option);
     });
+    // Opciones adicionales deduplicadas en mayúsculas
+    estatusMap.forEach((original, upper) => {
+      if (!baseEstatusSet.has(upper)) {
+        const option = document.createElement('option');
+        option.value = upper;
+        option.textContent = original || 'Sin estatus';
+        estatusSelect.appendChild(option);
+      }
+    });
     // Filtro de estado de pedido
     const estadoSelect = document.getElementById('filtroDespachoEstado');
-    const uniqueEstados = Array.from(new Set(despachos.map(d => d.estadoPedido || '')));
+    const estadosMap = new Map();
+    despachos.forEach(d => {
+      const original = d.estadoPedido || '';
+      const upper = original.toUpperCase();
+      if (!estadosMap.has(upper)) estadosMap.set(upper, original);
+    });
     estadoSelect.innerHTML = '';
     const optTodos = document.createElement('option');
     optTodos.value = 'Todos';
     optTodos.textContent = 'Todos';
     estadoSelect.appendChild(optTodos);
-    uniqueEstados.forEach(opt => {
+    estadosMap.forEach((original, upper) => {
       const option = document.createElement('option');
-      option.value = opt;
-      option.textContent = opt || 'Sin estado';
+      option.value = upper;
+      option.textContent = original || 'Sin estado';
       estadoSelect.appendChild(option);
     });
     // Asignar eventos
