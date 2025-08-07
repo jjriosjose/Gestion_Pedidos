@@ -125,8 +125,12 @@
 
   <!-- Scripts de la aplicación -->
   <script>
-  // URL del CSV de Google Sheets
-  const URL_CSV_PEDIDOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRw3e3ilkO_gfIij6UF8qFS28GDgudfT4ikIbdH5026_GiFyk9eCVDU1hLcBg-lI7fNgHUFGXysYBbv/pub?output=csv';
+  // Configuración de la URL del CSV de Google Sheets.
+  // Puede definirse mediante:
+  // 1) Una variable global `window.URL_CSV_PEDIDOS` declarada antes de este script.
+  // 2) El atributo `data-url-csv` en el elemento `<body>`.
+  // Si no se define, se utilizará esta URL por defecto.
+  const DEFAULT_URL_CSV_PEDIDOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRw3e3ilkO_gfIij6UF8qFS28GDgudfT4ikIbdH5026_GiFyk9eCVDU1hLcBg-lI7fNgHUFGXysYBbv/pub?output=csv';
 
   // Datos globales
   let pedidos = [];
@@ -462,7 +466,14 @@
    * También se encarga de crear filtros y gráficos una vez cargados los datos.
    */
   function cargarDatos() {
-    Papa.parse(URL_CSV_PEDIDOS, {
+    const csvUrl = window.URL_CSV_PEDIDOS || document.body.dataset.urlCsv || DEFAULT_URL_CSV_PEDIDOS;
+    if (!csvUrl) {
+      alert('La URL del CSV de pedidos no está configurada.');
+      console.warn('URL_CSV_PEDIDOS no definida');
+      return;
+    }
+    console.log('Cargando pedidos desde:', csvUrl);
+    Papa.parse(csvUrl, {
       download: true,
       header: true,
       dynamicTyping: false,
