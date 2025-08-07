@@ -230,17 +230,44 @@
   function renderTablaPedidos(lista) {
     const tbody = document.getElementById('tablaPedidos');
     tbody.innerHTML = '';
+    const fragment = document.createDocumentFragment();
     lista.forEach(p => {
-      const fila = `<tr class="border-b">
-        <td class="px-4 py-2">${p.id}</td>
-        <td class="px-4 py-2">${p.cliente}</td>
-        <td class="px-4 py-2">${p.fecha}</td>
-        <td class="px-4 py-2">${p.estado}</td>
-        <td class="px-4 py-2">${p.responsable}</td>
-        <td class="px-4 py-2">${p.cantidad}</td>
-      </tr>`;
-      tbody.innerHTML += fila;
+      const tr = document.createElement('tr');
+      tr.className = 'border-b';
+
+      const tdId = document.createElement('td');
+      tdId.className = 'px-4 py-2';
+      tdId.textContent = p.id;
+      tr.appendChild(tdId);
+
+      const tdCliente = document.createElement('td');
+      tdCliente.className = 'px-4 py-2';
+      tdCliente.textContent = p.cliente;
+      tr.appendChild(tdCliente);
+
+      const tdFecha = document.createElement('td');
+      tdFecha.className = 'px-4 py-2';
+      tdFecha.textContent = p.fecha;
+      tr.appendChild(tdFecha);
+
+      const tdEstado = document.createElement('td');
+      tdEstado.className = 'px-4 py-2';
+      tdEstado.textContent = p.estado;
+      tr.appendChild(tdEstado);
+
+      const tdResponsable = document.createElement('td');
+      tdResponsable.className = 'px-4 py-2';
+      tdResponsable.textContent = p.responsable;
+      tr.appendChild(tdResponsable);
+
+      const tdCantidad = document.createElement('td');
+      tdCantidad.className = 'px-4 py-2';
+      tdCantidad.textContent = p.cantidad;
+      tr.appendChild(tdCantidad);
+
+      fragment.appendChild(tr);
     });
+    tbody.appendChild(fragment);
   }
 
   /**
@@ -333,24 +360,61 @@
   function renderDespachos(lista) {
     const tbody = document.getElementById('tablaDespachos');
     tbody.innerHTML = '';
+    const fragment = document.createDocumentFragment();
     lista.forEach(d => {
-      // Crear el desplegable de estatus para cada fila
-      const opciones = ESTATUS_ALMACEN_LIST.map(opt => {
-        const sel = (opt.toUpperCase() === (d.estadoAlmacen || '').toUpperCase()) ? 'selected' : '';
-        return `<option value="${opt}" ${sel}>${opt}</option>`;
-      }).join('');
-      const selectHtml = `<select class="border rounded p-1 text-xs" onchange="actualizarEstatusDespacho('${d.id}', this)">${opciones}</select>`;
-      const fila = `<tr class="border-b">
-        <td class="px-4 py-2">${d.id}</td>
-        <td class="px-4 py-2">${d.pedido}</td>
-        <td class="px-4 py-2">${d.cliente}</td>
-        <td class="px-4 py-2">${d.fecha}</td>
-        <td class="px-4 py-2">${d.transportista}</td>
-        <td class="px-4 py-2">${selectHtml}</td>
-        <td class="px-4 py-2">${d.lastModified || ''}</td>
-      </tr>`;
-      tbody.innerHTML += fila;
+      const tr = document.createElement('tr');
+      tr.className = 'border-b';
+
+      const tdId = document.createElement('td');
+      tdId.className = 'px-4 py-2';
+      tdId.textContent = d.id;
+      tr.appendChild(tdId);
+
+      const tdPedido = document.createElement('td');
+      tdPedido.className = 'px-4 py-2';
+      tdPedido.textContent = d.pedido;
+      tr.appendChild(tdPedido);
+
+      const tdCliente = document.createElement('td');
+      tdCliente.className = 'px-4 py-2';
+      tdCliente.textContent = d.cliente;
+      tr.appendChild(tdCliente);
+
+      const tdFecha = document.createElement('td');
+      tdFecha.className = 'px-4 py-2';
+      tdFecha.textContent = d.fecha;
+      tr.appendChild(tdFecha);
+
+      const tdTransportista = document.createElement('td');
+      tdTransportista.className = 'px-4 py-2';
+      tdTransportista.textContent = d.transportista;
+      tr.appendChild(tdTransportista);
+
+      const tdSelect = document.createElement('td');
+      tdSelect.className = 'px-4 py-2';
+      const selectEl = document.createElement('select');
+      selectEl.className = 'border rounded p-1 text-xs';
+      ESTATUS_ALMACEN_LIST.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        if (opt.toUpperCase() === (d.estadoAlmacen || '').toUpperCase()) {
+          option.selected = true;
+        }
+        selectEl.appendChild(option);
+      });
+      selectEl.addEventListener('change', () => actualizarEstatusDespacho(d.id, selectEl));
+      tdSelect.appendChild(selectEl);
+      tr.appendChild(tdSelect);
+
+      const tdLastMod = document.createElement('td');
+      tdLastMod.className = 'px-4 py-2';
+      tdLastMod.textContent = d.lastModified || '';
+      tr.appendChild(tdLastMod);
+
+      fragment.appendChild(tr);
     });
+    tbody.appendChild(fragment);
   }
 
   /**
