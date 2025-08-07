@@ -33,6 +33,10 @@
     <button class="hover:underline" onclick="mostrarSeccion('moduloInventario')">📊 Inventario</button>
   </nav>
 
+  <div id="loadingIndicator" class="p-4 text-center text-gray-700 hidden">
+    Cargando datos...
+  </div>
+
   <!-- Módulo de gestión de pedidos -->
   <div id="moduloPedidos" class="p-6">
     <div class="bg-white shadow rounded p-4 mb-6">
@@ -462,6 +466,8 @@
    * También se encarga de crear filtros y gráficos una vez cargados los datos.
    */
   function cargarDatos() {
+    const loader = document.getElementById('loadingIndicator');
+    if (loader) loader.classList.remove('hidden');
     Papa.parse(URL_CSV_PEDIDOS, {
       download: true,
       header: true,
@@ -510,6 +516,12 @@
         crearGraficos();
         crearFiltrosDespachos();
         aplicarFiltrosDespachos();
+        if (loader) loader.classList.add('hidden');
+      },
+      error: function(err) {
+        console.error('Error al cargar el CSV:', err);
+        alert('Ocurrió un error al cargar los datos. Inténtalo nuevamente.');
+        if (loader) loader.classList.add('hidden');
       }
     });
   }
