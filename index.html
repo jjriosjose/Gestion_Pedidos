@@ -125,8 +125,12 @@
 
   <!-- Scripts de la aplicación -->
   <script>
-  // URL del CSV de Google Sheets
-  const URL_CSV_PEDIDOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRw3e3ilkO_gfIij6UF8qFS28GDgudfT4ikIbdH5026_GiFyk9eCVDU1hLcBg-lI7fNgHUFGXysYBbv/pub?output=csv';
+  // Configuración de la URL del CSV de Google Sheets.
+  // Puede definirse mediante:
+  // 1) Una variable global `window.URL_CSV_PEDIDOS` declarada antes de este script.
+  // 2) El atributo `data-url-csv` en el elemento `<body>`.
+  // Si no se define, se utilizará esta URL por defecto.
+  const DEFAULT_URL_CSV_PEDIDOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRw3e3ilkO_gfIij6UF8qFS28GDgudfT4ikIbdH5026_GiFyk9eCVDU1hLcBg-lI7fNgHUFGXysYBbv/pub?output=csv';
 
   // Datos globales
   let pedidos = [];
@@ -226,17 +230,44 @@
   function renderTablaPedidos(lista) {
     const tbody = document.getElementById('tablaPedidos');
     tbody.innerHTML = '';
+    const fragment = document.createDocumentFragment();
     lista.forEach(p => {
-      const fila = `<tr class="border-b">
-        <td class="px-4 py-2">${p.id}</td>
-        <td class="px-4 py-2">${p.cliente}</td>
-        <td class="px-4 py-2">${p.fecha}</td>
-        <td class="px-4 py-2">${p.estado}</td>
-        <td class="px-4 py-2">${p.responsable}</td>
-        <td class="px-4 py-2">${p.cantidad}</td>
-      </tr>`;
-      tbody.innerHTML += fila;
+      const tr = document.createElement('tr');
+      tr.className = 'border-b';
+
+      const tdId = document.createElement('td');
+      tdId.className = 'px-4 py-2';
+      tdId.textContent = p.id;
+      tr.appendChild(tdId);
+
+      const tdCliente = document.createElement('td');
+      tdCliente.className = 'px-4 py-2';
+      tdCliente.textContent = p.cliente;
+      tr.appendChild(tdCliente);
+
+      const tdFecha = document.createElement('td');
+      tdFecha.className = 'px-4 py-2';
+      tdFecha.textContent = p.fecha;
+      tr.appendChild(tdFecha);
+
+      const tdEstado = document.createElement('td');
+      tdEstado.className = 'px-4 py-2';
+      tdEstado.textContent = p.estado;
+      tr.appendChild(tdEstado);
+
+      const tdResponsable = document.createElement('td');
+      tdResponsable.className = 'px-4 py-2';
+      tdResponsable.textContent = p.responsable;
+      tr.appendChild(tdResponsable);
+
+      const tdCantidad = document.createElement('td');
+      tdCantidad.className = 'px-4 py-2';
+      tdCantidad.textContent = p.cantidad;
+      tr.appendChild(tdCantidad);
+
+      fragment.appendChild(tr);
     });
+    tbody.appendChild(fragment);
   }
 
   /**
@@ -329,24 +360,61 @@
   function renderDespachos(lista) {
     const tbody = document.getElementById('tablaDespachos');
     tbody.innerHTML = '';
+    const fragment = document.createDocumentFragment();
     lista.forEach(d => {
-      // Crear el desplegable de estatus para cada fila
-      const opciones = ESTATUS_ALMACEN_LIST.map(opt => {
-        const sel = (opt.toUpperCase() === (d.estadoAlmacen || '').toUpperCase()) ? 'selected' : '';
-        return `<option value="${opt}" ${sel}>${opt}</option>`;
-      }).join('');
-      const selectHtml = `<select class="border rounded p-1 text-xs" onchange="actualizarEstatusDespacho('${d.id}', this)">${opciones}</select>`;
-      const fila = `<tr class="border-b">
-        <td class="px-4 py-2">${d.id}</td>
-        <td class="px-4 py-2">${d.pedido}</td>
-        <td class="px-4 py-2">${d.cliente}</td>
-        <td class="px-4 py-2">${d.fecha}</td>
-        <td class="px-4 py-2">${d.transportista}</td>
-        <td class="px-4 py-2">${selectHtml}</td>
-        <td class="px-4 py-2">${d.lastModified || ''}</td>
-      </tr>`;
-      tbody.innerHTML += fila;
+      const tr = document.createElement('tr');
+      tr.className = 'border-b';
+
+      const tdId = document.createElement('td');
+      tdId.className = 'px-4 py-2';
+      tdId.textContent = d.id;
+      tr.appendChild(tdId);
+
+      const tdPedido = document.createElement('td');
+      tdPedido.className = 'px-4 py-2';
+      tdPedido.textContent = d.pedido;
+      tr.appendChild(tdPedido);
+
+      const tdCliente = document.createElement('td');
+      tdCliente.className = 'px-4 py-2';
+      tdCliente.textContent = d.cliente;
+      tr.appendChild(tdCliente);
+
+      const tdFecha = document.createElement('td');
+      tdFecha.className = 'px-4 py-2';
+      tdFecha.textContent = d.fecha;
+      tr.appendChild(tdFecha);
+
+      const tdTransportista = document.createElement('td');
+      tdTransportista.className = 'px-4 py-2';
+      tdTransportista.textContent = d.transportista;
+      tr.appendChild(tdTransportista);
+
+      const tdSelect = document.createElement('td');
+      tdSelect.className = 'px-4 py-2';
+      const selectEl = document.createElement('select');
+      selectEl.className = 'border rounded p-1 text-xs';
+      ESTATUS_ALMACEN_LIST.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        if (opt.toUpperCase() === (d.estadoAlmacen || '').toUpperCase()) {
+          option.selected = true;
+        }
+        selectEl.appendChild(option);
+      });
+      selectEl.addEventListener('change', () => actualizarEstatusDespacho(d.id, selectEl));
+      tdSelect.appendChild(selectEl);
+      tr.appendChild(tdSelect);
+
+      const tdLastMod = document.createElement('td');
+      tdLastMod.className = 'px-4 py-2';
+      tdLastMod.textContent = d.lastModified || '';
+      tr.appendChild(tdLastMod);
+
+      fragment.appendChild(tr);
     });
+    tbody.appendChild(fragment);
   }
 
   /**
@@ -393,28 +461,55 @@
   function crearFiltrosDespachos() {
     // Filtro de estatus de almacén
     const estatusSelect = document.getElementById('filtroDespachoEstatus');
-    // Lista de opciones con los estatus base más los que encuentren en los datos
-    const uniqueEstatus = Array.from(new Set(despachos.map(d => d.estadoAlmacen || '')));
-    const opcionesEstatus = ['Todos', ...ESTATUS_ALMACEN_LIST, ...uniqueEstatus.filter(x => !ESTATUS_ALMACEN_LIST.includes(x))];
+    // Mapear estatus encontrados usando mayúsculas para deduplicar
+    const estatusMap = new Map();
+    despachos.forEach(d => {
+      const original = d.estadoAlmacen || '';
+      const upper = original.toUpperCase();
+      if (!estatusMap.has(upper)) estatusMap.set(upper, original);
+    });
+    // Conjunto base de estatus en mayúsculas
+    const baseEstatusSet = new Set(ESTATUS_ALMACEN_LIST.map(e => e.toUpperCase()));
     estatusSelect.innerHTML = '';
-    opcionesEstatus.forEach(opt => {
+    // Opción 'Todos'
+    const optTodosEstatus = document.createElement('option');
+    optTodosEstatus.value = 'Todos';
+    optTodosEstatus.textContent = 'Todos';
+    estatusSelect.appendChild(optTodosEstatus);
+    // Opciones base
+    ESTATUS_ALMACEN_LIST.forEach(opt => {
       const option = document.createElement('option');
-      option.value = opt;
+      option.value = opt.toUpperCase();
       option.textContent = opt;
       estatusSelect.appendChild(option);
     });
+    // Opciones adicionales deduplicadas en mayúsculas
+    estatusMap.forEach((original, upper) => {
+      if (!baseEstatusSet.has(upper)) {
+        const option = document.createElement('option');
+        option.value = upper;
+        option.textContent = original || 'Sin estatus';
+        estatusSelect.appendChild(option);
+      }
+    });
     // Filtro de estado de pedido
     const estadoSelect = document.getElementById('filtroDespachoEstado');
-    const uniqueEstados = Array.from(new Set(despachos.map(d => d.estadoPedido || '')));
+    const estadosMap = new Map();
+    despachos.forEach(d => {
+      const original = d.estadoPedido || '';
+      const upper = original.toUpperCase();
+      if (!estadosMap.has(upper)) estadosMap.set(upper, original);
+    });
     estadoSelect.innerHTML = '';
     const optTodos = document.createElement('option');
     optTodos.value = 'Todos';
     optTodos.textContent = 'Todos';
     estadoSelect.appendChild(optTodos);
-    uniqueEstados.forEach(opt => {
+    estadosMap.forEach((original, upper) => {
       const option = document.createElement('option');
-      option.value = opt || '__SIN_ESTADO__';
-      option.textContent = opt || 'Sin estado';
+<<<<<<option.value = opt || '__SIN_ESTADO__';
+option.textContent = opt || 'Sin estado';
+
       estadoSelect.appendChild(option);
     });
     // Asignar eventos
@@ -464,7 +559,14 @@
    * También se encarga de crear filtros y gráficos una vez cargados los datos.
    */
   function cargarDatos() {
-    Papa.parse(URL_CSV_PEDIDOS, {
+    const csvUrl = window.URL_CSV_PEDIDOS || document.body.dataset.urlCsv || DEFAULT_URL_CSV_PEDIDOS;
+    if (!csvUrl) {
+      alert('La URL del CSV de pedidos no está configurada.');
+      console.warn('URL_CSV_PEDIDOS no definida');
+      return;
+    }
+    console.log('Cargando pedidos desde:', csvUrl);
+    Papa.parse(csvUrl, {
       download: true,
       header: true,
       dynamicTyping: false,
