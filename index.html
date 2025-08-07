@@ -1,0 +1,432 @@
+
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gestión de Pedidos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Biblioteca para analizar archivos CSV desde Google Sheets -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+<nav class="bg-gray-900 text-white px-6 py-3 flex gap-6 items-center shadow">
+<span class="text-lg font-semibold">🚛 Logística &amp; Almacén</span>
+<button class="hover:underline" onclick="mostrarSeccion('moduloPedidos')">📦 Gestión de Pedidos</button>
+<button class="hover:underline" onclick="mostrarSeccion('moduloDespachos')">🚚 Despachos</button>
+<button class="hover:underline" onclick="mostrarSeccion('moduloRecepcion')">📥 Recepción de Mercancía</button>
+<button class="hover:underline" onclick="mostrarSeccion('moduloInventario')">📊 Inventario</button>
+</nav>
+<div id="moduloPedidos"><div class="p-6 bg-white shadow mb-4">
+<h1 class="text-2xl font-bold text-gray-800">📦 Sistema de Gestión de Pedidos</h1>
+<p class="text-sm text-gray-500">Almacén y logística</p>
+</div><div class="px-6 flex gap-2 mb-4">
+<button class="bg-gray-700 text-white px-3 py-2 rounded" onclick="filtrarEstado('Todos')">Todos</button>
+<button class="bg-yellow-500 text-white px-3 py-2 rounded" onclick="filtrarEstado('Pendiente')">Pendientes</button>
+<button class="bg-blue-500 text-white px-3 py-2 rounded" onclick="filtrarEstado('Facturado')">Facturados</button>
+<button class="bg-green-600 text-white px-3 py-2 rounded" onclick="filtrarEstado('Entregado')">Entregados</button>
+</div><div class="px-6 overflow-x-auto">
+<table class="min-w-full bg-white rounded shadow text-sm">
+<thead class="bg-gray-200 text-gray-600 uppercase text-xs leading-normal">
+<tr>
+<th class="py-3 px-4">Pedido</th>
+<th class="py-3 px-4">Cliente</th>
+<th class="py-3 px-4">Fecha</th>
+<th class="py-3 px-4">Estado</th>
+<th class="py-3 px-4">Responsable</th>
+<th class="py-3 px-4">Comentario</th>
+<th class="py-3 px-4">Acciones</th></tr>
+</thead>
+<tbody class="text-gray-700" id="tablaPedidos">
+<!-- Filas dinámicas aquí -->
+</tbody>
+</table>
+</div><div class="p-6">
+<h2 class="text-lg font-semibold mb-2">📊 Estadísticas de Pedidos</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<canvas height="160" id="graficoEstados"></canvas>
+<canvas height="160" id="graficoResponsables"></canvas>
+</div>
+</div><script>
+    // Array global para almacenar los pedidos cargados desde Google Sheets.
+    // Se define aquí pero se inicializará en la carga de datos.
+    let pedidos = [];
+    // Array global para almacenar los despachos cargados desde Google Sheets.
+    let despachos = [];
+    // URL del CSV exportado desde Google Sheets. Este enlace debe ser público y
+    // configurado con `output=csv` como parámetro para obtener los datos en
+    // formato CSV. Se cargará mediante Papa.parse cuando se inicialice la
+    // página.
+    const URL_CSV_PEDIDOS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRw3e3ilkO_gfIij6UF8qFS28GDgudfT4ikIbdH5026_GiFyk9eCVDU1hLcBg-lI7fNgHUFGXysYBbv/pub?output=csv';
+
+    // Lista predefinida de estados de almacén disponibles para cada despacho.  
+    // Esta lista se usa tanto para poblar el desplegable de cada fila como para los filtros de cabecera.
+    const ESTATUS_ALMACEN_LIST = [
+      'EN PREPARACION',
+      'PREPARADO/PICKEADO',
+      'LISTO PARA DESPACHO',
+      'EN RUTA/DESPACHO',
+      'ENTREGADO',
+      'PARCIALMENTE ENTREGADO',
+      'DEVUELTO/RECHAZADO',
+      'REQUIERE REVISION'
+    ];
+
+    // Mantiene el filtro activo actualmente aplicado a los despachos. Por defecto es "Todos".
+    let estadoFiltradoDespachos = 'Todos';
+
+    function renderTabla(filtrados) {
+      const tbody = document.getElementById("tablaPedidos");
+      tbody.innerHTML = "";
+      filtrados.forEach(p => {
+        const fila = `<tr class="border-b">
+          <td class="px-4 py-2">${p.id}</td>
+          <td class="px-4 py-2">${p.cliente}</td>
+          <td class="px-4 py-2">${p.fecha}</td>
+          <td class="px-4 py-2">${p.estado}</td>
+          <td class="px-4 py-2">${p.responsable}</td>
+          <td class="px-4 py-2">${p.comentario}</td>
+        </tr>`;
+        
+    fila += `<td class='px-4 py-2'><button onclick="abrirPanelEditar('${p.id}')" class='bg-gray-200 px-2 py-1 rounded text-sm'>✏️ Cambiar</button></td>`;
+    tbody.innerHTML += fila;
+    
+      });
+    }
+
+    function filtrarEstado(estado) {
+      const filtrados = estado === "Todos" ? pedidos : pedidos.filter(p => p.estado === estado);
+      renderTabla(filtrados);
+    }
+
+    // Renderiza el historial de despachos en la tabla correspondiente
+    function renderDespachos(lista) {
+      const tbody = document.getElementById("tablaDespachos");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+      lista.forEach(d => {
+        // Construir las opciones del desplegable de estado para esta fila
+        const opciones = ESTATUS_ALMACEN_LIST.map(opt => {
+          const selected = opt === (d.estado || '').trim() ? 'selected' : '';
+          return `<option value="${opt}" ${selected}>${opt}</option>`;
+        }).join('');
+        const selectHtml = `<select class="border rounded p-1" onchange="actualizarEstatusDespacho('${d.id}', this.value)">${opciones}</select>`;
+        let fila = `<tr class="border-b">
+          <td class="px-4 py-2">${d.id}</td>
+          <td class="px-4 py-2">${d.pedido}</td>
+          <td class="px-4 py-2">${d.cliente}</td>
+          <td class="px-4 py-2">${d.fecha}</td>
+          <td class="px-4 py-2">${d.transportista}</td>
+          <td class="px-4 py-2">${selectHtml}</td>
+        </tr>`;
+        tbody.innerHTML += fila;
+      });
+    }
+
+    // Filtra los despachos por un estado dado y actualiza la vista y el botón activo
+    function filtrarDespachos(estado) {
+      // Guardar el estado de filtro activo
+      estadoFiltradoDespachos = estado;
+
+      const filtrados = estado === "Todos" ? despachos : despachos.filter(d => {
+        const est = d.estado || "";
+        return est.toLowerCase() === estado.toLowerCase();
+      });
+      renderDespachos(filtrados);
+      // Actualizar el estilo de los botones de filtro de despachos
+      const buttons = document.querySelectorAll("#despachosFilters button");
+      buttons.forEach(btn => {
+        btn.classList.remove("bg-blue-600", "text-white");
+        btn.classList.add("bg-gray-200", "text-gray-600");
+      });
+      const activo = document.querySelector(`#despachosFilters button[data-estado="${estado}"]`);
+      if (activo) {
+        activo.classList.remove("bg-gray-200", "text-gray-600");
+        activo.classList.add("bg-blue-600", "text-white");
+      }
+    }
+
+    // Actualiza el estado de almacén de un despacho específico.  
+    // Cuando se cambia el valor en el desplegable, se modifica la propiedad
+    // correspondiente del objeto y se vuelve a aplicar el filtro activo para
+    // refrescar la tabla.
+    function actualizarEstatusDespacho(id, nuevoEstado) {
+      const item = despachos.find(d => d.id === id);
+      if (item) {
+        item.estado = nuevoEstado;
+        // Vuelve a aplicar el filtro actualmente seleccionado para
+        // actualizar la vista según corresponda.
+        filtrarDespachos(estadoFiltradoDespachos);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // Al cargar la página, se lee el CSV publicado de Google Sheets usando Papa.parse.
+      // Una vez cargados los datos se actualizan la tabla y las estadísticas.
+      Papa.parse(URL_CSV_PEDIDOS, {
+        download: true,
+        header: true,
+        dynamicTyping: false,
+        skipEmptyLines: true,
+        complete: function(results) {
+          // Construimos el array de pedidos a partir de las filas del CSV.  El
+          // código trata de mapear nombres de columnas comunes a los campos
+          // esperados por la aplicación.  Ajuste estos nombres si su hoja
+          // utiliza encabezados diferentes.
+          pedidos = results.data.map(row => ({
+            id: row.id || row.ID || row.PEDIDO || row.Pedido || row.pedido || row['Id'] || '',
+            cliente: row.cliente || row.Cliente || row.CLIENTE || row['Nombre Cliente'] || '',
+            fecha: row.fecha || row.Fecha || row.FECHA || '',
+            estado: row.estado || row.Estado || row.ESTADO || '',
+            responsable: row.responsable || row.Responsable || row.RESPONSABLE || '',
+            comentario: row.comentario || row.Comentario || row.COMENTARIO || ''
+          })).filter(p => p.id && p.cliente);
+
+          // Actualizar la tabla inicial con todos los pedidos
+          filtrarEstado("Todos");
+
+          // Recalcular estadísticas por estado y responsable
+          const estadoData = {};
+          const responsableData = {};
+          pedidos.forEach(p => {
+            const est = p.estado || 'Sin estado';
+            estadoData[est] = (estadoData[est] || 0) + 1;
+            const resp = p.responsable || 'Sin responsable';
+            responsableData[resp] = (responsableData[resp] || 0) + 1;
+          });
+
+          // Crear o actualizar el gráfico de estados
+          new Chart(document.getElementById("graficoEstados"), {
+            type: "bar",
+            data: {
+              labels: Object.keys(estadoData),
+              datasets: [{ data: Object.values(estadoData), backgroundColor: ['#F59E0B', '#3B82F6', '#10B981', '#EC4899', '#F43F5E', '#84CC16'] }]
+            },
+            options: { plugins: { legend: { display: false } } }
+          });
+
+          // Crear o actualizar el gráfico de responsables
+          new Chart(document.getElementById("graficoResponsables"), {
+            type: "bar",
+            data: {
+              labels: Object.keys(responsableData),
+              datasets: [{ data: Object.values(responsableData), backgroundColor: ['#EF4444', '#6366F1', '#8B5CF6', '#F97316', '#10B981', '#3B82F6'] }]
+            },
+            options: { plugins: { legend: { display: false } } }
+          });
+
+          // Crear array de despachos a partir de las filas del CSV.  Se mapean
+          // distintas variaciones de encabezados a los campos esperados.
+          despachos = results.data.map(row => ({
+            id: row['COD.'] || row.COD || row.Cod || row.cod || row['COD'] || row['Cod.'] || row['No. ORDEN'] || row['NO. ORDEN'] || row['NO ORDEN'] || '',
+            pedido: row['PEDIDO #'] || row['PEDIDO'] || row['Pedido'] || row['Pedido #'] || row.Pedido || row.pedido || '',
+            cliente: row['NOMBRE'] || row.Nombre || row['Nombre'] || row['CLIENTE'] || row.Cliente || '',
+            fecha: row['FECHA'] || row.Fecha || row['Fecha'] || row.fecha || '',
+            transportista: row['CHOFER'] || row.Chofer || row['Transportista'] || row.transportista || '',
+            // Tomamos el estado de almacén preferentemente de la columna ESTATUS ALMACEN; si no existe,  
+            // usamos columnas de respaldo como ESTADO o Estatus.
+            estado: row['ESTATUS ALMACEN'] || row['Estatus Almacen'] || row['ESTADO'] || row.Estado || row['Estado'] || row['Estatus'] || ''
+          })).filter(d => d.id && d.pedido);
+
+          // Generar botones de filtro para los estados de los despachos
+          // Construimos los filtros de cabecera combinando la lista predefinida de
+          // estados de almacén con los valores únicos presentes en los datos.
+          const uniqueDatasetStatuses = Array.from(new Set(despachos.map(d => d.estado || '')));
+          const filtros = ['Todos', ...ESTATUS_ALMACEN_LIST, ...uniqueDatasetStatuses.filter(st => !ESTATUS_ALMACEN_LIST.includes(st))];
+          const contenedorFiltros = document.getElementById('despachosFilters');
+          if (contenedorFiltros) {
+            contenedorFiltros.innerHTML = '';
+            filtros.forEach(est => {
+              const button = document.createElement('button');
+              // Mostrar "Sin estado" para cadenas vacías
+              button.textContent = est || 'Sin estado';
+              button.dataset.estado = est;
+              button.className = 'px-4 py-2 rounded bg-gray-200 text-gray-600 hover:bg-gray-300';
+              button.addEventListener('click', () => filtrarDespachos(est));
+              contenedorFiltros.appendChild(button);
+            });
+          }
+
+          // Mostrar todos los despachos por defecto
+          filtrarDespachos('Todos');
+        }
+      });
+    });
+  </script><div class="p-6 bg-white rounded shadow m-6 hidden border border-gray-300" id="panelEditar">
+<h2 class="text-lg font-semibold mb-4">✏️ Editar estado de pedido</h2>
+<p>Pedido: <strong id="editPedidoId"></strong></p>
+<p>Estado actual: <span class="font-medium text-blue-600" id="estadoActual"></span></p>
+<div class="my-4">
+<label class="block text-sm font-medium text-gray-700 mb-1" for="nuevoEstado">Nuevo estado:</label>
+<select class="border rounded p-2 w-full" id="nuevoEstado">
+<option>Pendiente</option>
+<option>Facturado</option>
+<option>Entregado</option>
+</select>
+<input id="pedidoEditando" type="hidden"/>
+</div>
+<button class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700" onclick="guardarNuevoEstado()">Guardar</button>
+<button class="ml-2 px-4 py-2 border rounded" onclick="document.getElementById('panelEditar').classList.add('hidden')">Cancelar</button>
+</div><script>
+function abrirPanelEditar(pedidoId) {
+  const pedido = pedidos.find(p => p.id === pedidoId);
+  if (!pedido) return;
+  document.getElementById("editPedidoId").textContent = pedidoId;
+  document.getElementById("estadoActual").textContent = pedido.estado;
+  document.getElementById("nuevoEstado").value = pedido.estado;
+  document.getElementById("panelEditar").classList.remove("hidden");
+  document.getElementById("pedidoEditando").value = pedidoId;
+}
+
+function guardarNuevoEstado() {
+  const pedidoId = document.getElementById("pedidoEditando").value;
+  const nuevoEstado = document.getElementById("nuevoEstado").value;
+  const pedido = pedidos.find(p => p.id === pedidoId);
+  if (pedido) {
+    pedido.estado = nuevoEstado;
+    filtrarEstado("Todos");
+    document.getElementById("panelEditar").classList.add("hidden");
+  }
+}
+</script></div><div class="p-6 hidden" id="moduloDespachos">
+<div class="bg-white rounded shadow p-4">
+<h2 class="text-xl font-semibold mb-4">🚚 Historial de Despachos</h2>
+<!-- Contenedor para los botones de filtro de despachos -->
+<div class="mb-4 flex gap-2" id="despachosFilters"></div>
+<table class="min-w-full bg-white text-sm">
+<thead class="bg-gray-200 text-gray-600 uppercase text-xs leading-normal">
+<tr>
+<th class="py-3 px-4">ID Despacho</th>
+<th class="py-3 px-4">Pedido</th>
+<th class="py-3 px-4">Cliente</th>
+<th class="py-3 px-4">Fecha</th>
+<th class="py-3 px-4">Transportista</th>
+<th class="py-3 px-4">Estatus Almacén</th>
+</tr>
+</thead>
+<tbody id="tablaDespachos" class="text-gray-700">
+        <!-- Filas de despachos generadas dinámicamente -->
+</tbody>
+</table>
+</div>
+</div><div class="p-6 hidden" id="moduloRecepcion"><h2 class="text-xl font-semibold mb-4">📥 Recepción de Mercancía</h2><p>Este módulo está en desarrollo.</p></div><div class="p-6 hidden" id="moduloInventario"><h2 class="text-xl font-semibold mb-4">📊 Control de Inventario</h2><p>Este módulo está en desarrollo.</p></div><script>
+function mostrarSeccion(id) {
+  const secciones = ['moduloPedidos', 'moduloDespachos', 'moduloRecepcion', 'moduloInventario'];
+  secciones.forEach(sec => {
+    const el = document.getElementById(sec);
+    if (el) el.classList.add('hidden');
+  });
+  const visible = document.getElementById(id);
+  if (visible) visible.classList.remove('hidden');
+}
+</script>
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50" id="panelEntrega">
+<div class="bg-white rounded shadow-lg w-full max-w-md p-6 relative">
+<button class="absolute top-2 right-3 text-gray-500 text-lg" onclick="cerrarPanelEntrega()">×</button>
+<h2 class="text-lg font-semibold mb-4">📤 Registrar Entrega</h2>
+<p><strong>Pedido:</strong> <span class="font-mono text-blue-600" id="entregaPedidoId"></span></p>
+<div class="my-4">
+<label class="block text-sm font-medium mb-1">Foto de Factura:</label>
+<input accept="image/*" capture="environment" class="w-full border rounded p-2" type="file"/>
+</div>
+<div class="my-4">
+<label class="block text-sm font-medium mb-1">Comentario:</label>
+<textarea class="w-full border rounded p-2" placeholder="Ej. Cliente firmó conforme..." rows="3"></textarea>
+</div>
+
+<div class="my-4">
+<label class="block text-sm font-medium mb-1">Cantidad de bultos:</label>
+<input class="w-full border rounded p-2" id="cantidadBultos" min="1" placeholder="Ej. 10" type="number"/>
+</div>
+<div class="my-4">
+<label class="block text-sm font-medium mb-1">Ubicación:</label>
+<button class="bg-gray-700 text-white px-3 py-1 rounded text-sm hover:bg-gray-800" onclick="obtenerUbicacion()">📍 Obtener ubicación</button>
+<p class="text-sm text-gray-600 mt-1" id="ubicacionTexto"></p>
+</div>
+<div class="my-4">
+<label class="block text-sm font-medium mb-1">Firma digital:</label>
+<canvas class="border rounded w-full" height="120" id="firmaCanvas"></canvas>
+<button class="text-sm text-blue-600 mt-2 underline" onclick="limpiarFirma()">Limpiar firma</button>
+</div>
+<button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onclick="cerrarPanelEntrega()">Confirmar Entrega</button>
+</div>
+</div>
+<script>
+function abrirRegistroEntrega(pedidoId) {
+  document.getElementById("entregaPedidoId").textContent = pedidoId;
+  document.getElementById("panelEntrega").classList.remove("hidden");
+}
+
+function cerrarPanelEntrega() {
+  document.getElementById("panelEntrega").classList.add("hidden");
+}
+</script><script>
+let coordsEntrega = null;
+
+function obtenerUbicacion() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(position) {
+      coordsEntrega = {
+        lat: position.coords.latitude,
+        lon: position.coords.longitude
+      };
+      document.getElementById("ubicacionTexto").textContent = 
+        `Lat: ${coordsEntrega.lat.toFixed(5)}, Lon: ${coordsEntrega.lon.toFixed(5)}`;
+    }, function(error) {
+      alert("No se pudo obtener la ubicación.");
+    });
+  } else {
+    alert("Geolocalización no es compatible con este navegador.");
+  }
+}
+
+const canvas = document.getElementById("firmaCanvas");
+const ctx = canvas.getContext("2d");
+let firmando = false;
+
+canvas.addEventListener("mousedown", e => { firmando = true; dibujar(e); });
+canvas.addEventListener("mouseup", () => firmando = false);
+canvas.addEventListener("mousemove", dibujar);
+canvas.addEventListener("touchstart", e => { firmando = true; dibujar(e.touches[0]); e.preventDefault(); });
+canvas.addEventListener("touchend", () => firmando = false);
+canvas.addEventListener("touchmove", e => { if (firmando) dibujar(e.touches[0]); e.preventDefault(); });
+
+function dibujar(e) {
+  if (!firmando) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX || e.pageX) - rect.left;
+  const y = (e.clientY || e.pageY) - rect.top;
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#111";
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+}
+
+function limpiarFirma() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.beginPath();
+}
+
+function cerrarPanelEntrega() {
+  const pedidoId = document.getElementById("entregaPedidoId").textContent;
+  const comentario = document.querySelector("#panelEntrega textarea").value;
+  const bultos = document.getElementById("cantidadBultos").value;
+  const firmaData = canvas.toDataURL();
+  const datosEntrega = {
+    pedido: pedidoId,
+    comentario: comentario,
+    bultos: bultos,
+    ubicacion: coordsEntrega,
+    firmaBase64: firmaData
+  };
+  console.log("✅ Datos de entrega:", datosEntrega);
+  alert("Entrega registrada exitosamente (simulado)");
+  document.getElementById("panelEntrega").classList.add("hidden");
+}
+</script></body>
+</html>
